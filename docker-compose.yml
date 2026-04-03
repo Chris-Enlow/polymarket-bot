@@ -1,0 +1,35 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: poly
+      POSTGRES_PASSWORD: poly
+      POSTGRES_DB: polymarket
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poly -d polymarket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Override DB host to the compose service name
+      DATABASE_URL: postgresql+asyncpg://poly:poly@db:5432/polymarket
+    dns:
+      - 8.8.8.8   # Google DNS — bypasses Docker's embedded resolver which can stall
+      - 1.1.1.1   # Cloudflare DNS — fast fallback
+    restart: unless-stopped
+    # Keeps stdout/stderr unbuffered so structlog output is immediate
+    tty: false
+
+volumes:
+  pgdata:
